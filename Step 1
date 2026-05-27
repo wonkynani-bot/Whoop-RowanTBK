@@ -1,0 +1,10 @@
+Step 1 — Create the WHOOP developer app.
+
+Go to https://developer.whoop.com → sign in with your WHOOP account.
+Click Create App (or "New App").
+Fill in:
+App name: anything (e.g. "My Dashboard")
+Redirect URI: https://ytdashfinal.vercel.app/api/whoop-callback
+Scopes: check read:recovery, read:sleep, read:workout, read:cycles, read:profile, read:body_measurement
+Save.
+On the next screen you'll see a Client ID and Client Secret. Copy both into a Notes file — you'll need them in step 2.
