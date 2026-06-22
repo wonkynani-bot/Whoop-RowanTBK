@@ -5,8 +5,19 @@ import WhoopConnect from '@/components/WhoopConnect'
 import FoodLogForm from '@/components/FoodLogForm'
 import CoachHistory from '@/components/CoachHistory'
 import DataHistory from '@/components/DataHistory'
+import TodayWhoop from '@/components/TodayWhoop'
 
 export const revalidate = 0
+
+async function getTodayWhoop(): Promise<WhoopData | null> {
+  const today = new Date().toISOString().slice(0, 10)
+  const { data } = await supabase
+    .from('whoop_data')
+    .select('*')
+    .eq('date', today)
+    .single()
+  return data ?? null
+}
 
 async function getTodayCard(): Promise<CoachCard | null> {
   const today = new Date().toISOString().slice(0, 10)
@@ -55,7 +66,8 @@ async function getPastData(): Promise<{ whoopData: WhoopData[]; foodData: FoodLo
 }
 
 export default async function Home() {
-  const [todayCard, history, pastData] = await Promise.all([
+  const [todayWhoop, todayCard, history, pastData] = await Promise.all([
+    getTodayWhoop(),
     getTodayCard(),
     getHistory(),
     getPastData(),
@@ -63,9 +75,11 @@ export default async function Home() {
 
   return (
     <main className="page">
+      <TodayWhoop data={todayWhoop} />
+      <WhoopConnect />
+      <hr className="divider" />
       <CoachCardComponent card={todayCard} />
       <hr className="divider" />
-      <WhoopConnect />
       <FoodLogForm />
       <hr className="divider" />
       <DataHistory whoopData={pastData.whoopData} foodData={pastData.foodData} />

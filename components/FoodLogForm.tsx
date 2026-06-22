@@ -56,6 +56,11 @@ export default function FoodLogForm() {
 
   useEffect(() => { fetchLogs() }, [fetchLogs])
 
+  // Daily totals
+  const totalCal  = todayLogs.reduce((s, m) => s + (m.calories ?? 0), 0)
+  const totalProt = todayLogs.reduce((s, m) => s + (m.protein  ?? 0), 0)
+  const hasTotals = todayLogs.length > 0
+
   function set(field: keyof FormState, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
     if (submitStatus !== 'idle') setSubmitStatus('idle')
@@ -116,11 +121,8 @@ export default function FoodLogForm() {
 
     rec.onend = () => {
       const text = transcriptRef.current.trim()
-      if (text) {
-        parseMeal(text)
-      } else {
-        setVoiceStage('idle')
-      }
+      if (text) parseMeal(text)
+      else setVoiceStage('idle')
     }
 
     rec.onerror = (e: { error: string }) => {
@@ -135,11 +137,8 @@ export default function FoodLogForm() {
   }
 
   function handleMicClick() {
-    if (voiceStage === 'listening') {
-      recogRef.current?.stop()
-    } else if (voiceStage === 'idle') {
-      startListening()
-    }
+    if (voiceStage === 'listening') recogRef.current?.stop()
+    else if (voiceStage === 'idle') startListening()
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -185,6 +184,15 @@ export default function FoodLogForm() {
       <div className="section-title">Log food</div>
       <div className="food-card">
 
+        {/* ── Daily summary ── */}
+        {hasTotals && (
+          <div className="daily-summary">
+            <span className="daily-summary-meals">{todayLogs.length} meal{todayLogs.length !== 1 ? 's' : ''}</span>
+            {totalProt > 0 && <span className="daily-summary-stat"><strong>{Math.round(totalProt)}g</strong> protein</span>}
+            {totalCal  > 0 && <span className="daily-summary-stat"><strong>{Math.round(totalCal).toLocaleString()}</strong> cal</span>}
+          </div>
+        )}
+
         {/* ── Voice input ── */}
         <div className="voice-area">
           <button
@@ -214,9 +222,7 @@ export default function FoodLogForm() {
             {voiceStage === 'parsing'   && 'Extracting macros…'}
           </p>
 
-          {transcript && (
-            <p className="voice-transcript">&ldquo;{transcript}&rdquo;</p>
-          )}
+          {transcript && <p className="voice-transcript">&ldquo;{transcript}&rdquo;</p>}
         </div>
 
         <div className="voice-or">or enter manually</div>
@@ -276,7 +282,7 @@ export default function FoodLogForm() {
           </button>
 
           {submitStatus === 'saved' && <p className="food-success">Logged ✓</p>}
-          {submitStatus === 'error'  && errMsg && <p className="food-error">{errMsg}</p>}
+          {submitStatus === 'error' && errMsg && <p className="food-error">{errMsg}</p>}
         </form>
 
         {/* ── Today's meals ── */}

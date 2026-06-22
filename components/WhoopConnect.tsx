@@ -49,36 +49,52 @@ export default function WhoopConnect() {
     try {
       const res = await fetch('/api/sync-now', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Sync failed')
+      if (!res.ok) {
+        const msg = json.error ?? 'Sync failed'
+        const detail = json.detail ? ` (${json.detail})` : ''
+        const step = json.step ? ` [step: ${json.step}]` : ''
+        throw new Error(msg + detail + step)
+      }
       setSyncStatus('done')
-      setTimeout(() => { window.location.reload() }, 1000)
+      setTimeout(() => { window.location.reload() }, 1200)
     } catch (e) {
-      setSyncErr(e instanceof Error ? e.message : 'Sync failed')
+      const msg = e instanceof Error ? e.message : 'Sync failed — unknown error'
+      setSyncErr(msg)
       setSyncStatus('error')
-      setTimeout(() => setSyncStatus('idle'), 4000)
     }
   }
 
   if (connected) {
     return (
-      <div className="whoop-sync-row">
-        <span className="whoop-sync-label">
-          <span className="whoop-brand-mark-sm">W</span>
-          WHOOP connected
-        </span>
-        <div className="whoop-sync-right">
-          {syncStatus === 'error' && <span className="whoop-sync-err">{syncErr}</span>}
+      <div className="whoop-sync-wrapper">
+        <div className="whoop-sync-row">
+          <span className="whoop-sync-label">
+            <span className="whoop-brand-mark-sm">W</span>
+            WHOOP connected
+          </span>
           <button
-            className="whoop-sync-btn"
+            className={`whoop-sync-btn${syncStatus === 'done' ? ' is-done' : ''}`}
             type="button"
             onClick={handleSync}
             disabled={syncStatus === 'syncing' || syncStatus === 'done'}
           >
-            {syncStatus === 'syncing' && 'Syncing…'}
-            {syncStatus === 'done'    && 'Synced ✓'}
-            {(syncStatus === 'idle' || syncStatus === 'error') && 'Sync now'}
+            {syncStatus === 'idle'    && 'Sync now'}
+            {syncStatus === 'syncing' && (
+              <>
+                <span className="whoop-sync-spinner" />
+                Syncing…
+              </>
+            )}
+            {syncStatus === 'done'    && '✓ Synced'}
+            {syncStatus === 'error'   && 'Retry sync'}
           </button>
         </div>
+
+        {syncStatus === 'error' && syncErr && (
+          <div className="sync-error-msg">
+            <strong>Sync failed:</strong> {syncErr}
+          </div>
+        )}
       </div>
     )
   }

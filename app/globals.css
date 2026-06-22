@@ -470,8 +470,60 @@ html, body {
 .voice-or::after  { right: 0; }
 
 /* ============================================================
+   Today section (WHOOP metrics)
+   ============================================================ */
+.today-section { margin-bottom: 20px; }
+
+.today-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.today-metric {
+  background: rgba(255,255,255,0.025);
+  border-radius: var(--radius-md);
+  padding: 12px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.today-metric-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-quaternary);
+}
+
+.today-metric-value {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.whoop-metric-green  { color: var(--success); }
+.whoop-metric-yellow { color: var(--warning); }
+.whoop-metric-red    { color: var(--danger); }
+
+.today-empty {
+  font-size: 13px;
+  color: var(--text-quaternary);
+  padding: 4px 0 8px;
+  line-height: 1.5;
+}
+
+.today-empty strong { color: var(--text-tertiary); }
+
+/* ============================================================
    WHOOP sync row (connected state)
    ============================================================ */
+.whoop-sync-wrapper { margin-bottom: 20px; }
+
 .whoop-sync-row {
   display: flex;
   align-items: center;
@@ -479,7 +531,6 @@ html, body {
   padding: 10px 14px;
   background: rgba(255,255,255,0.025);
   border-radius: var(--radius-md);
-  margin-bottom: 20px;
   gap: 10px;
 }
 
@@ -507,21 +558,10 @@ html, body {
   flex-shrink: 0;
 }
 
-.whoop-sync-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.whoop-sync-err {
-  font-size: 11px;
-  color: var(--danger);
-  max-width: 160px;
-  text-align: right;
-  line-height: 1.3;
-}
-
 .whoop-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
@@ -536,8 +576,66 @@ html, body {
   flex-shrink: 0;
 }
 
-.whoop-sync-btn:hover { background: rgba(255,255,255,0.12); }
-.whoop-sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.whoop-sync-btn:hover  { background: rgba(255,255,255,0.12); }
+.whoop-sync-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.whoop-sync-btn.is-done { color: var(--success); border-color: rgba(107,227,164,0.25); }
+
+.whoop-sync-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(255,255,255,0.25);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.sync-error-msg {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: rgba(255,107,107,0.10);
+  border: 1px solid rgba(255,107,107,0.25);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: #FF9999;
+  line-height: 1.5;
+}
+
+.sync-error-msg strong { color: var(--danger); }
+
+/* ============================================================
+   Food daily summary
+   ============================================================ */
+.daily-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border-radius: var(--radius-md);
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.daily-summary-meals {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--text-quaternary);
+  flex-shrink: 0;
+}
+
+.daily-summary-stat {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.daily-summary-stat strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
 
 /* ============================================================
    Today's meals list (inside food card)
