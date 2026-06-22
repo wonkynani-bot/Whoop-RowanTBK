@@ -357,6 +357,202 @@ html, body {
 }
 
 /* ============================================================
+   Energy curve
+   ============================================================ */
+.energy-section { margin-bottom: 20px; }
+
+.energy-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.peak-score-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  padding-bottom: 4px;
+}
+
+.peak-score-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-quaternary);
+}
+
+.peak-score-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.energy-card {
+  background: rgba(255,255,255,0.025);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  padding: 16px 16px 12px;
+}
+
+.energy-chart-wrapper {
+  position: relative;
+  height: 100px;
+  overflow: hidden;
+}
+
+.energy-chart-wrapper svg {
+  display: block;
+}
+
+/* "Now" dashed line overlay */
+.now-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255,255,255,0.38);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.38) 0px, rgba(255,255,255,0.38) 4px,
+    transparent 4px, transparent 7px
+  );
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.now-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6BE3A4;
+  box-shadow: 0 0 6px rgba(107,227,164,0.8);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* X-axis labels */
+.energy-x-labels {
+  position: relative;
+  height: 20px;
+  margin-top: 4px;
+}
+
+.energy-x-labels span {
+  position: absolute;
+  font-size: 9px;
+  color: rgba(255,255,255,0.28);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.energy-x-labels span:first-child { transform: none; }
+.energy-x-labels span:last-child  { transform: translateX(-100%); }
+
+/* Peak window tags */
+.energy-windows {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.energy-window {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.energy-window-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.energy-window-tag.focus {
+  background: rgba(107,227,164,0.12);
+  color: var(--success);
+}
+
+.energy-window-tag.train {
+  background: rgba(224,118,88,0.12);
+  color: var(--accent);
+}
+
+.energy-estimate-note {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  margin: 6px 0 0;
+  font-style: italic;
+}
+
+/* ============================================================
+   Daily journal
+   ============================================================ */
+.journal-area {
+  margin-top: 18px;
+  margin-bottom: 4px;
+}
+
+.journal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.journal-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.journal-status {
+  font-size: 11px;
+  color: var(--text-quaternary);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.journal-status.visible { opacity: 1; }
+
+.journal-textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 10px 13px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.journal-textarea:focus {
+  border-color: rgba(255,255,255,0.18);
+}
+
+.journal-textarea::placeholder {
+  color: var(--text-quaternary);
+}
+
+/* ============================================================
    Coach history
    ============================================================ */
 .history-section { margin-bottom: 48px; }

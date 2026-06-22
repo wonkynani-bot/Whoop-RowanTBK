@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { Resend } from 'resend'
 import { supabase } from '@/lib/supabase'
 
 const SYSTEM_PROMPT = `You are a personal performance coach for a 24-year-old male optimizing testosterone naturally.
@@ -74,20 +75,46 @@ KEY INSIGHTS FOR COACHING:
 
 CURRENT PROTOCOL: strength training 3-4x/week, 1g protein/lb bodyweight, animal fats, no seed oils, organ meats/liver weekly, 5g creatine daily, tongkat ali, magnesium glycinate, zinc, boron, consistent sleep at 67F dark room, morning sunlight 10+ min, no plastics, natural fabrics.
 
-Given the Whoop data and food logs for the last 7 days, output exactly:
+Given the Whoop data, food logs, and journal notes for the last 7 days, output exactly:
 Line 1: TRAIN HEAVY / TRAIN MODERATE / TRAIN LIGHT / REST — one sentence why.
 Line 2: DO THIS TODAY: one specific action based on the data.
 Line 3: FOOD NOTE: one observation about nutrition based on logs, skip if no food data.
 Line 4: FLAG: one genuine concern only if something warrants it, otherwise write NONE.
 Max 5 sentences total. Direct, no fluff.`
 
+function buildEmailHtml(brief: string, date: string): string {
+  const dateStr = new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC',
+  })
+  const lines = brief.split('\n').filter(Boolean).map(line => {
+    const colonIdx = line.indexOf(':')
+    if (line.startsWith('TRAIN') || line.startsWith('REST')) {
+      return `<p style="margin:10px 0;font-size:15px;color:#FAFAFA;"><strong style="color:#6BE3A4;">${line.split(' — ')[0]}</strong>${line.includes(' — ') ? ' — ' + line.split(' — ').slice(1).join(' — ') : ''}</p>`
+    }
+    if (colonIdx > 0 && colonIdx < 20) {
+      return `<p style="margin:10px 0;font-size:15px;color:#B8B6B0;"><strong style="color:#FAFAFA;">${line.slice(0, colonIdx + 1)}</strong>${line.slice(colonIdx + 1)}</p>`
+    }
+    return `<p style="margin:10px 0;font-size:15px;color:#B8B6B0;">${line}</p>`
+  }).join('')
+
+  return `<!DOCTYPE html><html><body style="background:#0A0A0B;color:#FAFAFA;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;padding:32px 24px;max-width:480px;margin:0 auto;">
+<p style="font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#E07658;margin:0 0 6px;">Daily Brief</p>
+<p style="font-size:13px;color:#76746E;margin:0 0 24px;">${dateStr}</p>
+<div style="background:rgba(255,255,255,0.04);border-radius:16px;padding:20px 22px;line-height:1.7;">
+  ${lines}
+</div>
+<p style="font-size:11px;color:#4D4B47;margin-top:24px;">WHOOP Coach · <a href="https://whoop-rowan-tbk.vercel.app" style="color:#4D4B47;">Open app</a></p>
+</body></html>`
+}
+
 async function generateCard() {
   const today = new Date().toISOString().slice(0, 10)
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
-  const [{ data: whoopRows }, { data: foodRows }] = await Promise.all([
+  const [{ data: whoopRows }, { data: foodRows }, { data: journalRows }] = await Promise.all([
     supabase.from('whoop_data').select('*').order('date', { ascending: false }).limit(7),
     supabase.from('food_logs').select('*').gte('date', sevenDaysAgo).order('date', { ascending: false }),
+    supabase.from('journal_entries').select('date, content').gte('date', sevenDaysAgo).order('date', { ascending: false }),
   ])
 
   const whoopSummary = whoopRows?.length
@@ -102,7 +129,15 @@ async function generateCard() {
       ).join('\n')
     : 'No food logs available.'
 
-  const userMessage = `Whoop data (last 7 days):\n${whoopSummary}\n\nFood logs (last 7 days):\n${foodSummary}`
+  const journalSummary = journalRows?.length
+    ? journalRows.map(r => `${r.date}: ${r.content}`).join('\n')
+    : 'No journal entries.'
+
+  const userMessage = [
+    `Whoop data (last 7 days):\n${whoopSummary}`,
+    `Food logs (last 7 days):\n${foodSummary}`,
+    `Journal notes (last 7 days):\n${journalSummary}`,
+  ].join('\n\n')
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   const msg = await anthropic.messages.create({
@@ -125,7 +160,7 @@ async function generateCard() {
   return { date: today, brief }
 }
 
-// Called by Vercel cron — requires CRON_SECRET
+// Called by Vercel cron — requires CRON_SECRET, sends email
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization') || ''
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -133,13 +168,31 @@ export async function GET(req: NextRequest) {
   }
   try {
     const result = await generateCard()
+
+    // Email notification (only on scheduled cron run)
+    const apiKey = process.env.RESEND_API_KEY
+    const to     = process.env.NOTIFICATION_EMAIL
+    if (apiKey && to) {
+      try {
+        const resend = new Resend(apiKey)
+        await resend.emails.send({
+          from:    'WHOOP Coach <onboarding@resend.dev>',
+          to,
+          subject: `Coach Brief — ${result.date}`,
+          html:    buildEmailHtml(result.brief, result.date),
+        })
+      } catch (e) {
+        console.error('Email failed (non-fatal):', e)
+      }
+    }
+
     return NextResponse.json({ ok: true, ...result })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
   }
 }
 
-// Called by the Generate now button — no auth needed for personal app
+// Called by the Generate now / Regenerate button — no auth, no email
 export async function POST() {
   try {
     const result = await generateCard()

@@ -51,6 +51,13 @@ export interface FoodLog {
   created_at: string
 }
 
+export interface JournalEntry {
+  id: number
+  date: string
+  content: string
+  updated_at: string
+}
+
 export interface CoachCard {
   id: number
   date: string
