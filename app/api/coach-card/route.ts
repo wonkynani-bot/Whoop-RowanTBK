@@ -10,30 +10,15 @@ Line 3: FOOD NOTE: one observation about nutrition based on logs, skip if no foo
 Line 4: FLAG: one genuine concern only if something warrants it, otherwise write NONE.
 Max 5 sentences total. Direct, no fluff.`
 
-export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization') || ''
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
-
+async function generateCard() {
   const today = new Date().toISOString().slice(0, 10)
-
-  // Fetch last 7 days of whoop data
-  const { data: whoopRows } = await supabase
-    .from('whoop_data')
-    .select('*')
-    .order('date', { ascending: false })
-    .limit(7)
-
-  // Fetch last 7 days of food logs
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-  const { data: foodRows } = await supabase
-    .from('food_logs')
-    .select('*')
-    .gte('date', sevenDaysAgo)
-    .order('date', { ascending: false })
 
-  // Build summaries for the prompt
+  const [{ data: whoopRows }, { data: foodRows }] = await Promise.all([
+    supabase.from('whoop_data').select('*').order('date', { ascending: false }).limit(7),
+    supabase.from('food_logs').select('*').gte('date', sevenDaysAgo).order('date', { ascending: false }),
+  ])
+
   const whoopSummary = whoopRows?.length
     ? whoopRows.map(r =>
         `${r.date}: recovery=${r.recovery_score ?? '—'}%, hrv=${r.hrv ?? '—'}ms, sleep=${r.sleep_score ?? '—'}%, strain=${r.strain ?? '—'}, resp=${r.respiratory_rate ?? '—'}rpm`
@@ -48,24 +33,14 @@ export async function GET(req: NextRequest) {
 
   const userMessage = `Whoop data (last 7 days):\n${whoopSummary}\n\nFood logs (last 7 days):\n${foodSummary}`
 
-  // Call Claude
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-  let brief: string
-  try {
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
-    })
-    brief = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
-  } catch (e) {
-    return NextResponse.json(
-      { error: 'Anthropic API failed: ' + (e instanceof Error ? e.message : String(e)) },
-      { status: 500 }
-    )
-  }
+  const msg = await anthropic.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 300,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: userMessage }],
+  })
+  const brief = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
 
   const { error: upsertErr } = await supabase.from('coach_cards').upsert({
     date: today,
@@ -74,9 +49,31 @@ export async function GET(req: NextRequest) {
     brief,
   }, { onConflict: 'date' })
 
-  if (upsertErr) {
-    return NextResponse.json({ error: 'Supabase upsert failed: ' + upsertErr.message }, { status: 500 })
-  }
+  if (upsertErr) throw new Error('Supabase upsert failed: ' + upsertErr.message)
 
-  return NextResponse.json({ ok: true, date: today, brief })
+  return { date: today, brief }
+}
+
+// Called by Vercel cron — requires CRON_SECRET
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get('authorization') || ''
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+  try {
+    const result = await generateCard()
+    return NextResponse.json({ ok: true, ...result })
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+  }
+}
+
+// Called by the Generate now button — no auth needed for personal app
+export async function POST() {
+  try {
+    const result = await generateCard()
+    return NextResponse.json({ ok: true, ...result })
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 })
+  }
 }
