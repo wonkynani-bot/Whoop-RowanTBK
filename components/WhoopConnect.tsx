@@ -22,11 +22,14 @@ function saveTokens(t: WhoopTokens) {
   try { localStorage.setItem(TOKEN_KEY, JSON.stringify(t)) } catch { /* ignore */ }
 }
 
+type SyncStatus = 'idle' | 'syncing' | 'done' | 'error'
+
 export default function WhoopConnect() {
   const [connected, setConnected] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [syncErr, setSyncErr] = useState('')
 
   useEffect(() => {
-    // Pick up tokens from hash after OAuth redirect
     if (location.hash && location.hash.includes('whoop_access')) {
       const h = new URLSearchParams(location.hash.slice(1))
       const access = h.get('whoop_access')
@@ -40,7 +43,45 @@ export default function WhoopConnect() {
     setConnected(!!loadTokens()?.access)
   }, [])
 
-  if (connected) return null
+  async function handleSync() {
+    setSyncStatus('syncing')
+    setSyncErr('')
+    try {
+      const res = await fetch('/api/sync-now', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Sync failed')
+      setSyncStatus('done')
+      setTimeout(() => { window.location.reload() }, 1000)
+    } catch (e) {
+      setSyncErr(e instanceof Error ? e.message : 'Sync failed')
+      setSyncStatus('error')
+      setTimeout(() => setSyncStatus('idle'), 4000)
+    }
+  }
+
+  if (connected) {
+    return (
+      <div className="whoop-sync-row">
+        <span className="whoop-sync-label">
+          <span className="whoop-brand-mark-sm">W</span>
+          WHOOP connected
+        </span>
+        <div className="whoop-sync-right">
+          {syncStatus === 'error' && <span className="whoop-sync-err">{syncErr}</span>}
+          <button
+            className="whoop-sync-btn"
+            type="button"
+            onClick={handleSync}
+            disabled={syncStatus === 'syncing' || syncStatus === 'done'}
+          >
+            {syncStatus === 'syncing' && 'Syncing…'}
+            {syncStatus === 'done'    && 'Synced ✓'}
+            {(syncStatus === 'idle' || syncStatus === 'error') && 'Sync now'}
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const handleConnect = () => {
     const clientId = process.env.NEXT_PUBLIC_WHOOP_CLIENT_ID

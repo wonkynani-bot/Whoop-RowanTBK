@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, FormEvent } from 'react'
+import { useState, useRef, useEffect, useCallback, FormEvent } from 'react'
 
 interface FormState {
   meal_name: string
@@ -11,10 +11,30 @@ interface FormState {
   notes: string
 }
 
+interface FoodLogEntry {
+  id: number
+  meal_name: string
+  protein: number | null
+  carbs: number | null
+  fats: number | null
+  calories: number | null
+  notes: string | null
+  created_at: string
+}
+
 const EMPTY: FormState = { meal_name: '', protein: '', carbs: '', fats: '', calories: '', notes: '' }
 
 type VoiceStage = 'idle' | 'listening' | 'parsing'
 type SubmitStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+function macroStr(log: FoodLogEntry): string {
+  const parts: string[] = []
+  if (log.protein != null)  parts.push(`P ${Math.round(log.protein)}g`)
+  if (log.carbs != null)    parts.push(`C ${Math.round(log.carbs)}g`)
+  if (log.fats != null)     parts.push(`F ${Math.round(log.fats)}g`)
+  if (log.calories != null) parts.push(`${Math.round(log.calories)} cal`)
+  return parts.join(' · ')
+}
 
 export default function FoodLogForm() {
   const [voiceStage, setVoiceStage] = useState<VoiceStage>('idle')
@@ -22,9 +42,19 @@ export default function FoodLogForm() {
   const [form, setForm] = useState<FormState>(EMPTY)
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>('idle')
   const [errMsg, setErrMsg] = useState('')
+  const [todayLogs, setTodayLogs] = useState<FoodLogEntry[]>([])
   const transcriptRef = useRef('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recogRef = useRef<any>(null)
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/food-logs')
+      if (res.ok) setTodayLogs(await res.json())
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => { fetchLogs() }, [fetchLogs])
 
   function set(field: keyof FormState, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -139,6 +169,7 @@ export default function FoodLogForm() {
       setSubmitStatus('saved')
       setForm(EMPTY)
       setTranscript('')
+      await fetchLogs()
       setTimeout(() => setSubmitStatus('idle'), 3000)
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : String(e))
@@ -178,9 +209,9 @@ export default function FoodLogForm() {
           </button>
 
           <p className="voice-label">
-            {voiceStage === 'idle'     && 'Tap to speak'}
+            {voiceStage === 'idle'      && 'Tap to speak'}
             {voiceStage === 'listening' && 'Listening… tap to stop'}
-            {voiceStage === 'parsing'  && 'Extracting macros…'}
+            {voiceStage === 'parsing'   && 'Extracting macros…'}
           </p>
 
           {transcript && (
@@ -190,7 +221,7 @@ export default function FoodLogForm() {
 
         <div className="voice-or">or enter manually</div>
 
-        {/* ── Manual form (always visible as fallback) ── */}
+        {/* ── Manual form ── */}
         <form className="food-form" onSubmit={handleSubmit}>
           <div className="food-field">
             <label className="food-label" htmlFor="meal-name">Meal</label>
@@ -247,6 +278,23 @@ export default function FoodLogForm() {
           {submitStatus === 'saved' && <p className="food-success">Logged ✓</p>}
           {submitStatus === 'error'  && errMsg && <p className="food-error">{errMsg}</p>}
         </form>
+
+        {/* ── Today's meals ── */}
+        {todayLogs.length > 0 && (
+          <div className="today-meals">
+            <div className="today-meals-header">Today&rsquo;s meals</div>
+            {todayLogs.map(log => {
+              const macros = macroStr(log)
+              return (
+                <div key={log.id} className="meal-row">
+                  <span className="meal-row-name">{log.meal_name}</span>
+                  {macros && <span className="meal-row-macros">{macros}</span>}
+                  {log.notes && <span className="meal-row-notes">{log.notes}</span>}
+                </div>
+              )
+            })}
+          </div>
+        )}
 
       </div>
     </section>
