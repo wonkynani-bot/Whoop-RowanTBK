@@ -1,0 +1,366 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
+
+/* ============================================================
+   Design tokens — ported verbatim from whoop.html
+   ============================================================ */
+:root {
+  --bg: #0A0A0B;
+  --bg-deep: #050506;
+  --bg-secondary: rgba(255,255,255,0.035);
+  --bg-card: rgba(255,255,255,0.04);
+  --glass-bg: rgba(255,255,255,0.04);
+  --glass-bg-hover: rgba(255,255,255,0.07);
+  --glass-bg-strong: rgba(255,255,255,0.085);
+  --glass-border: transparent;
+  --glass-border-strong: transparent;
+  --glass-shadow: 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 12px 40px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.25);
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+  --border: transparent;
+  --border-soft: transparent;
+  --border-strong: transparent;
+  --accent: #E07658;
+  --accent-hi: #F08A6C;
+  --accent-glow: rgba(224,118,88,0.40);
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --font: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   Page layout
+   ============================================================ */
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 28px 16px env(safe-area-inset-bottom, 32px);
+}
+
+.section-title {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+  font-size: 32px;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   Card base
+   ============================================================ */
+.card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  padding: 22px;
+}
+
+/* ============================================================
+   WHOOP connect (disconnected state)
+   ============================================================ */
+.whoop-disconnected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 18px 8px 8px;
+  gap: 6px;
+}
+.whoop-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.whoop-brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  color: #0A0A0B;
+  font-weight: 900;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.04em;
+  box-shadow: 0 0 12px rgba(255,255,255,0.20);
+}
+.whoop-brand-text {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--text-primary);
+}
+.whoop-disconnected-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.whoop-disconnected-sub {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  max-width: 280px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.whoop-connect-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.85);
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  color: #0A0A0B;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.18s, background 0.18s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.45);
+}
+.whoop-connect-btn:hover {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F2F0EA 100%);
+  transform: translateY(-1px);
+}
+.whoop-connect-btn:active { transform: translateY(0) scale(0.98); }
+
+/* ============================================================
+   Coach Card
+   ============================================================ */
+.coach-section { margin-bottom: 28px; }
+
+.coach-card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  padding: 22px;
+}
+
+.coach-card-date {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 14px;
+  font-family: var(--font-mono);
+}
+
+.coach-brief {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  white-space: pre-line;
+}
+
+.coach-brief-line {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.coach-brief-line:last-child { margin-bottom: 0; }
+
+.coach-label {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.coach-placeholder {
+  font-size: 13px;
+  color: var(--text-quaternary);
+  text-align: center;
+  padding: 18px 0 8px;
+  line-height: 1.6;
+}
+
+.coach-placeholder-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-quaternary);
+  margin-bottom: 10px;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ============================================================
+   Food log form
+   ============================================================ */
+.food-section { margin-bottom: 28px; }
+
+.food-card {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid transparent;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow);
+  padding: 22px;
+}
+
+.food-form { display: flex; flex-direction: column; gap: 12px; }
+
+.food-field { display: flex; flex-direction: column; gap: 5px; }
+
+.food-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.food-input, .food-textarea {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 10px 13px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.food-input:focus, .food-textarea:focus {
+  border-color: rgba(255,255,255,0.22);
+}
+
+.food-input::placeholder, .food-textarea::placeholder {
+  color: var(--text-quaternary);
+}
+
+.food-macros {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.food-submit {
+  margin-top: 4px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  letter-spacing: 0.02em;
+}
+
+.food-submit:hover { background: rgba(255,255,255,0.10); }
+.food-submit:active { transform: scale(0.98); }
+.food-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.food-success {
+  font-size: 12px;
+  color: var(--success);
+  text-align: center;
+  margin-top: 4px;
+  animation: fade-in 0.3s ease;
+}
+
+.food-error {
+  font-size: 12px;
+  color: var(--danger);
+  text-align: center;
+  margin-top: 4px;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   Coach history
+   ============================================================ */
+.history-section { margin-bottom: 48px; }
+
+.history-list { display: flex; flex-direction: column; gap: 10px; }
+
+.history-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.history-card:hover { background: rgba(255,255,255,0.04); }
+
+.history-card-date {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+}
+
+.history-card-brief {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.history-card.is-collapsed .history-card-brief {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.history-empty {
+  font-size: 13px;
+  color: var(--text-quaternary);
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* ============================================================
+   Divider
+   ============================================================ */
+.divider {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  margin: 0 0 28px;
+}
