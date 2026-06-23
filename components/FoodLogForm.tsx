@@ -1,6 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, FormEvent } from 'react'
+import type { FoodLog } from '@/lib/supabase'
+
+interface Props {
+  initialDate: string  // coach date (sleep-based), passed from server
+}
 
 interface FormState {
   meal_name: string
@@ -11,59 +16,90 @@ interface FormState {
   notes: string
 }
 
-interface FoodLogEntry {
-  id: number
+interface EditState {
   meal_name: string
-  protein: number | null
-  carbs: number | null
-  fats: number | null
-  calories: number | null
-  notes: string | null
-  created_at: string
+  protein: string
+  carbs: string
+  fats: string
+  calories: string
 }
 
-const EMPTY: FormState = { meal_name: '', protein: '', carbs: '', fats: '', calories: '', notes: '' }
+const EMPTY_FORM: FormState = { meal_name: '', protein: '', carbs: '', fats: '', calories: '', notes: '' }
+const EMPTY_EDIT: EditState = { meal_name: '', protein: '', carbs: '', fats: '', calories: '' }
 
-type VoiceStage = 'idle' | 'listening' | 'parsing'
+type VoiceStage   = 'idle' | 'listening' | 'parsing'
 type SubmitStatus = 'idle' | 'saving' | 'saved' | 'error'
 
-function macroStr(log: FoodLogEntry): string {
+function macroStr(log: FoodLog): string {
   const parts: string[] = []
-  if (log.protein != null)  parts.push(`P ${Math.round(log.protein)}g`)
-  if (log.carbs != null)    parts.push(`C ${Math.round(log.carbs)}g`)
-  if (log.fats != null)     parts.push(`F ${Math.round(log.fats)}g`)
+  if (log.protein  != null) parts.push(`P ${Math.round(log.protein)}g`)
+  if (log.carbs    != null) parts.push(`C ${Math.round(log.carbs)}g`)
+  if (log.fats     != null) parts.push(`F ${Math.round(log.fats)}g`)
   if (log.calories != null) parts.push(`${Math.round(log.calories)} cal`)
   return parts.join(' · ')
 }
 
-export default function FoodLogForm() {
+function prevDay(iso: string): string {
+  const d = new Date(iso + 'T12:00:00Z')
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRec = any
+
+export default function FoodLogForm({ initialDate }: Props) {
+  const coachDate = initialDate
+  const yesterday = prevDay(coachDate)
+
+  const [selectedDate,   setSelectedDate]   = useState(coachDate)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [logs,           setLogs]           = useState<FoodLog[]>([])
+
+  const [form,         setFormState]  = useState<FormState>(EMPTY_FORM)
+  const [submitStatus, setSubmit]     = useState<SubmitStatus>('idle')
+  const [errMsg,       setErrMsg]     = useState('')
+
   const [voiceStage, setVoiceStage] = useState<VoiceStage>('idle')
   const [transcript, setTranscript] = useState('')
-  const [form, setForm] = useState<FormState>(EMPTY)
-  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>('idle')
-  const [errMsg, setErrMsg] = useState('')
-  const [todayLogs, setTodayLogs] = useState<FoodLogEntry[]>([])
   const transcriptRef = useRef('')
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recogRef = useRef<any>(null)
+  const recogRef      = useRef<AnyRec>(null)
 
-  const fetchLogs = useCallback(async () => {
+  const [menuOpenId, setMenuOpenId] = useState<number | null>(null)
+  const [editingId,  setEditingId]  = useState<number | null>(null)
+  const [editState,  setEditState]  = useState<EditState>(EMPTY_EDIT)
+  const [movingId,   setMovingId]   = useState<number | null>(null)
+  const [moveDate,   setMoveDate]   = useState(coachDate)
+
+  const fetchLogs = useCallback(async (date: string) => {
     try {
-      const res = await fetch('/api/food-logs')
-      if (res.ok) setTodayLogs(await res.json())
+      const res = await fetch(`/api/food-logs?date=${date}`)
+      if (res.ok) setLogs(await res.json())
     } catch { /* ignore */ }
   }, [])
 
-  useEffect(() => { fetchLogs() }, [fetchLogs])
+  useEffect(() => { fetchLogs(selectedDate) }, [selectedDate, fetchLogs])
 
-  // Daily totals
-  const totalCal  = todayLogs.reduce((s, m) => s + (m.calories ?? 0), 0)
-  const totalProt = todayLogs.reduce((s, m) => s + (m.protein  ?? 0), 0)
-  const hasTotals = todayLogs.length > 0
+  const totalCal  = logs.reduce((s, m) => s + (m.calories ?? 0), 0)
+  const totalProt = logs.reduce((s, m) => s + (m.protein  ?? 0), 0)
 
-  function set(field: keyof FormState, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }))
-    if (submitStatus !== 'idle') setSubmitStatus('idle')
+  function dateLabel(iso: string): string {
+    if (iso === coachDate) return 'Today'
+    if (iso === yesterday) return 'Yesterday'
+    const d = new Date(iso + 'T12:00:00Z')
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  }
+
+  function mealsHeader(): string {
+    if (selectedDate === coachDate) return "Today's meals"
+    if (selectedDate === yesterday) return "Yesterday's meals"
+    const d = new Date(selectedDate + 'T12:00:00Z')
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }) + ' meals'
+  }
+
+  function setField(field: keyof FormState, value: string) {
+    setFormState(prev => ({ ...prev, [field]: value }))
+    if (submitStatus !== 'idle') setSubmit('idle')
   }
 
   async function parseMeal(text: string) {
@@ -76,7 +112,7 @@ export default function FoodLogForm() {
       })
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
-      setForm({
+      setFormState({
         meal_name: data.meal_name ?? '',
         protein:  data.protein  != null ? String(data.protein)  : '',
         carbs:    data.carbs    != null ? String(data.carbs)    : '',
@@ -86,53 +122,46 @@ export default function FoodLogForm() {
       })
     } catch (e) {
       setErrMsg('Could not parse: ' + (e instanceof Error ? e.message : String(e)))
-      setSubmitStatus('error')
+      setSubmit('error')
     } finally {
       setVoiceStage('idle')
     }
   }
 
   function startListening() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SpeechRec = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
+    const SpeechRec = (window as AnyRec).SpeechRecognition ?? (window as AnyRec).webkitSpeechRecognition
     if (!SpeechRec) {
       setErrMsg('Voice input not supported in this browser — use the form below.')
-      setSubmitStatus('error')
+      setSubmit('error')
       return
     }
-
     const rec = new SpeechRec()
     rec.lang = 'en-US'
     rec.continuous = false
     rec.interimResults = true
     recogRef.current = rec
     transcriptRef.current = ''
-
     setVoiceStage('listening')
     setTranscript('')
     setErrMsg('')
-    setSubmitStatus('idle')
-
+    setSubmit('idle')
     rec.onresult = (e: { results: SpeechRecognitionResultList }) => {
       const text = Array.from(e.results).map((r: SpeechRecognitionResult) => r[0].transcript).join('')
       transcriptRef.current = text
       setTranscript(text)
     }
-
     rec.onend = () => {
       const text = transcriptRef.current.trim()
       if (text) parseMeal(text)
       else setVoiceStage('idle')
     }
-
     rec.onerror = (e: { error: string }) => {
       if (e.error !== 'aborted' && e.error !== 'no-speech') {
         setErrMsg('Mic error: ' + e.error)
-        setSubmitStatus('error')
+        setSubmit('error')
       }
       setVoiceStage('idle')
     }
-
     rec.start()
   }
 
@@ -144,15 +173,14 @@ export default function FoodLogForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!form.meal_name.trim()) return
-
-    setSubmitStatus('saving')
+    setSubmit('saving')
     setErrMsg('')
-
     try {
       const res = await fetch('/api/food-logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          date:     selectedDate,
           meal_name: form.meal_name.trim(),
           protein:  form.protein  ? Number(form.protein)  : null,
           carbs:    form.carbs    ? Number(form.carbs)    : null,
@@ -165,29 +193,128 @@ export default function FoodLogForm() {
         const json = await res.json().catch(() => ({ error: 'unknown error' }))
         throw new Error(json.error || 'Save failed')
       }
-      setSubmitStatus('saved')
-      setForm(EMPTY)
+      setSubmit('saved')
+      setFormState(EMPTY_FORM)
       setTranscript('')
-      await fetchLogs()
-      setTimeout(() => setSubmitStatus('idle'), 3000)
+      await fetchLogs(selectedDate)
+      setTimeout(() => setSubmit('idle'), 3000)
     } catch (e) {
       setErrMsg(e instanceof Error ? e.message : String(e))
-      setSubmitStatus('error')
+      setSubmit('error')
     }
+  }
+
+  function selectDate(date: string) {
+    setSelectedDate(date)
+    setShowDatePicker(false)
+    setMenuOpenId(null)
+    setEditingId(null)
+    setMovingId(null)
+  }
+
+  function openMenu(id: number) {
+    setMenuOpenId(menuOpenId === id ? null : id)
+    setEditingId(null)
+    setMovingId(null)
+  }
+
+  function startEdit(meal: FoodLog) {
+    setEditingId(meal.id)
+    setEditState({
+      meal_name: meal.meal_name,
+      calories:  meal.calories?.toString() ?? '',
+      protein:   meal.protein?.toString()  ?? '',
+      carbs:     meal.carbs?.toString()    ?? '',
+      fats:      meal.fats?.toString()     ?? '',
+    })
+    setMenuOpenId(null)
+    setMovingId(null)
+  }
+
+  function startMove(id: number) {
+    setMovingId(id)
+    setMoveDate(prevDay(selectedDate))  // default to previous day as a sensible target
+    setMenuOpenId(null)
+    setEditingId(null)
+  }
+
+  async function handleEditSave(id: number) {
+    const res = await fetch(`/api/food-logs/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        meal_name: editState.meal_name,
+        calories:  editState.calories ? Number(editState.calories) : null,
+        protein:   editState.protein  ? Number(editState.protein)  : null,
+        carbs:     editState.carbs    ? Number(editState.carbs)    : null,
+        fats:      editState.fats     ? Number(editState.fats)     : null,
+      }),
+    })
+    if (res.ok) {
+      setEditingId(null)
+      fetchLogs(selectedDate)
+    }
+  }
+
+  async function handleMove(id: number) {
+    if (!moveDate || moveDate === selectedDate) return
+    await fetch(`/api/food-logs/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: moveDate }),
+    })
+    setMovingId(null)
+    // Remove from current list immediately
+    setLogs(prev => prev.filter(m => m.id !== id))
+  }
+
+  async function handleDelete(id: number) {
+    await fetch(`/api/food-logs/${id}`, { method: 'DELETE' })
+    setMenuOpenId(null)
+    setLogs(prev => prev.filter(m => m.id !== id))
   }
 
   const isParsing = voiceStage === 'parsing'
   const isSaving  = submitStatus === 'saving'
+  const isCustomDate = selectedDate !== coachDate && selectedDate !== yesterday
 
   return (
     <section className="food-section">
       <div className="section-title">Log food</div>
       <div className="food-card">
 
-        {/* ── Daily summary ── */}
-        {hasTotals && (
+        {/* ── Date selector ── */}
+        <div className="food-date-row">
+          <button
+            className={`food-date-chip${selectedDate === yesterday ? ' active' : ''}`}
+            onClick={() => selectDate(yesterday)}
+          >Yesterday</button>
+          <button
+            className={`food-date-chip${selectedDate === coachDate ? ' active' : ''}`}
+            onClick={() => selectDate(coachDate)}
+          >Today</button>
+          <button
+            className={`food-date-chip${isCustomDate ? ' active' : ''}`}
+            onClick={() => setShowDatePicker(v => !v)}
+          >
+            {isCustomDate ? dateLabel(selectedDate) : 'Pick date'}
+          </button>
+        </div>
+        {showDatePicker && (
+          <input
+            type="date"
+            className="food-date-picker-input"
+            value={isCustomDate ? selectedDate : ''}
+            max={coachDate}
+            onChange={e => { if (e.target.value) selectDate(e.target.value) }}
+            autoFocus
+          />
+        )}
+
+        {/* ── Daily summary for selected date ── */}
+        {logs.length > 0 && (
           <div className="daily-summary">
-            <span className="daily-summary-meals">{todayLogs.length} meal{todayLogs.length !== 1 ? 's' : ''}</span>
+            <span className="daily-summary-meals">{logs.length} meal{logs.length !== 1 ? 's' : ''}</span>
             {totalProt > 0 && <span className="daily-summary-stat"><strong>{Math.round(totalProt)}g</strong> protein</span>}
             {totalCal  > 0 && <span className="daily-summary-stat"><strong>{Math.round(totalCal).toLocaleString()}</strong> cal</span>}
           </div>
@@ -215,13 +342,11 @@ export default function FoodLogForm() {
               </svg>
             )}
           </button>
-
           <p className="voice-label">
-            {voiceStage === 'idle'      && 'Tap to speak'}
+            {voiceStage === 'idle'      && `Tap to speak — logs to ${dateLabel(selectedDate)}`}
             {voiceStage === 'listening' && 'Listening… tap to stop'}
             {voiceStage === 'parsing'   && 'Extracting macros…'}
           </p>
-
           {transcript && <p className="voice-transcript">&ldquo;{transcript}&rdquo;</p>}
         </div>
 
@@ -237,30 +362,28 @@ export default function FoodLogForm() {
               type="text"
               placeholder="e.g. Ribeye + eggs"
               value={form.meal_name}
-              onChange={e => set('meal_name', e.target.value)}
+              onChange={e => setField('meal_name', e.target.value)}
               required
             />
           </div>
-
           <div className="food-macros">
             <div className="food-field">
               <label className="food-label" htmlFor="food-protein">Protein (g)</label>
-              <input id="food-protein" className="food-input" type="number" min="0" step="0.1" placeholder="0" value={form.protein} onChange={e => set('protein', e.target.value)} />
+              <input id="food-protein" className="food-input" type="number" min="0" step="0.1" placeholder="0" value={form.protein} onChange={e => setField('protein', e.target.value)} />
             </div>
             <div className="food-field">
               <label className="food-label" htmlFor="food-carbs">Carbs (g)</label>
-              <input id="food-carbs" className="food-input" type="number" min="0" step="0.1" placeholder="0" value={form.carbs} onChange={e => set('carbs', e.target.value)} />
+              <input id="food-carbs" className="food-input" type="number" min="0" step="0.1" placeholder="0" value={form.carbs} onChange={e => setField('carbs', e.target.value)} />
             </div>
             <div className="food-field">
               <label className="food-label" htmlFor="food-fats">Fats (g)</label>
-              <input id="food-fats" className="food-input" type="number" min="0" step="0.1" placeholder="0" value={form.fats} onChange={e => set('fats', e.target.value)} />
+              <input id="food-fats" className="food-input" type="number" min="0" step="0.1" placeholder="0" value={form.fats} onChange={e => setField('fats', e.target.value)} />
             </div>
             <div className="food-field">
               <label className="food-label" htmlFor="food-calories">Calories</label>
-              <input id="food-calories" className="food-input" type="number" min="0" step="1" placeholder="0" value={form.calories} onChange={e => set('calories', e.target.value)} />
+              <input id="food-calories" className="food-input" type="number" min="0" step="1" placeholder="0" value={form.calories} onChange={e => setField('calories', e.target.value)} />
             </div>
           </div>
-
           <div className="food-field">
             <label className="food-label" htmlFor="food-notes">Notes (optional)</label>
             <input
@@ -269,33 +392,92 @@ export default function FoodLogForm() {
               type="text"
               placeholder="e.g. grass-fed, post-workout"
               value={form.notes}
-              onChange={e => set('notes', e.target.value)}
+              onChange={e => setField('notes', e.target.value)}
             />
           </div>
-
           <button
             className="food-submit"
             type="submit"
             disabled={isSaving || isParsing || !form.meal_name.trim()}
           >
-            {isSaving ? 'Saving…' : 'Log meal'}
+            {isSaving ? 'Saving…' : `Log to ${dateLabel(selectedDate)}`}
           </button>
-
           {submitStatus === 'saved' && <p className="food-success">Logged ✓</p>}
           {submitStatus === 'error' && errMsg && <p className="food-error">{errMsg}</p>}
         </form>
 
-        {/* ── Today's meals ── */}
-        {todayLogs.length > 0 && (
+        {/* ── Meals list ── */}
+        {logs.length > 0 && (
           <div className="today-meals">
-            <div className="today-meals-header">Today&rsquo;s meals</div>
-            {todayLogs.map(log => {
-              const macros = macroStr(log)
+            <div className="today-meals-header">{mealsHeader()}</div>
+            {logs.map(meal => {
+              const macros    = macroStr(meal)
+              const isEditing = editingId  === meal.id
+              const isMoving  = movingId   === meal.id
+              const isMenuOpen = menuOpenId === meal.id
+
               return (
-                <div key={log.id} className="meal-row">
-                  <span className="meal-row-name">{log.meal_name}</span>
-                  {macros && <span className="meal-row-macros">{macros}</span>}
-                  {log.notes && <span className="meal-row-notes">{log.notes}</span>}
+                <div key={meal.id} className={`meal-row${isEditing || isMoving ? ' meal-row-active' : ''}`}>
+                  {isEditing ? (
+                    <div className="meal-edit-form">
+                      <input
+                        className="food-input"
+                        value={editState.meal_name}
+                        onChange={e => setEditState(s => ({ ...s, meal_name: e.target.value }))}
+                        placeholder="Meal name"
+                        autoFocus
+                      />
+                      <div className="meal-edit-macros">
+                        <input className="food-input" type="number" placeholder="kcal" min="0" value={editState.calories} onChange={e => setEditState(s => ({ ...s, calories: e.target.value }))} />
+                        <input className="food-input" type="number" placeholder="P (g)" min="0" value={editState.protein}  onChange={e => setEditState(s => ({ ...s, protein:  e.target.value }))} />
+                        <input className="food-input" type="number" placeholder="C (g)" min="0" value={editState.carbs}    onChange={e => setEditState(s => ({ ...s, carbs:    e.target.value }))} />
+                        <input className="food-input" type="number" placeholder="F (g)" min="0" value={editState.fats}     onChange={e => setEditState(s => ({ ...s, fats:     e.target.value }))} />
+                      </div>
+                      <div className="meal-action-row">
+                        <button className="meal-action-btn save" onClick={() => handleEditSave(meal.id)}>Save</button>
+                        <button className="meal-action-btn" onClick={() => setEditingId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : isMoving ? (
+                    <div className="meal-move-form">
+                      <span className="meal-move-label">Move &ldquo;{meal.meal_name}&rdquo; to:</span>
+                      <input
+                        type="date"
+                        className="food-date-picker-input"
+                        value={moveDate}
+                        max={coachDate}
+                        onChange={e => setMoveDate(e.target.value)}
+                      />
+                      <div className="meal-action-row">
+                        <button
+                          className="meal-action-btn save"
+                          onClick={() => handleMove(meal.id)}
+                          disabled={!moveDate || moveDate === selectedDate}
+                        >Move</button>
+                        <button className="meal-action-btn" onClick={() => setMovingId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="meal-row-header">
+                        <span className="meal-row-name">{meal.meal_name}</span>
+                        <button
+                          className="meal-menu-btn"
+                          onClick={() => openMenu(meal.id)}
+                          aria-label="Meal options"
+                        >•••</button>
+                      </div>
+                      {macros && <span className="meal-row-macros">{macros}</span>}
+                      {meal.notes && <span className="meal-row-notes">{meal.notes}</span>}
+                      {isMenuOpen && (
+                        <div className="meal-action-strip">
+                          <button className="meal-action-btn" onClick={() => startEdit(meal)}>Edit</button>
+                          <button className="meal-action-btn" onClick={() => startMove(meal.id)}>Move to date</button>
+                          <button className="meal-action-btn danger" onClick={() => handleDelete(meal.id)}>Delete</button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )
             })}

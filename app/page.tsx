@@ -77,7 +77,7 @@ export default async function Home() {
       <CoachCardComponent card={todayCard} />
       <JournalEntry initialContent={journalContent} />
       <hr className="divider" />
-      <FoodLogForm />
+      <FoodLogForm initialDate={today} />
       <hr className="divider" />
       <DataHistory whoopData={pastData.whoopData} foodData={pastData.foodData} />
       <CoachHistory cards={history} />

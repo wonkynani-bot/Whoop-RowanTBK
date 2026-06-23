@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(data, { status: 201 })
 }
 
-export async function GET() {
-  const today = await getCoachDate()
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const today = searchParams.get('date') ?? await getCoachDate()
   const { data, error } = await supabase
     .from('food_logs')
     .select('*')
