@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { Resend } from 'resend'
 import { supabase } from '@/lib/supabase'
+import { getCoachDate } from '@/lib/coach-date'
 
 const SYSTEM_PROMPT = `You are a personal performance coach for a 24-year-old male optimizing testosterone naturally.
 
@@ -75,12 +76,25 @@ KEY INSIGHTS FOR COACHING:
 
 CURRENT PROTOCOL: strength training 3-4x/week, 1g protein/lb bodyweight, animal fats, no seed oils, organ meats/liver weekly, 5g creatine daily, tongkat ali, magnesium glycinate, zinc, boron, consistent sleep at 67F dark room, morning sunlight 10+ min, no plastics, natural fabrics.
 
-Given the Whoop data, food logs, and journal notes for the last 7 days, output exactly:
-Line 1: TRAIN HEAVY / TRAIN MODERATE / TRAIN LIGHT / REST — one sentence why.
-Line 2: DO THIS TODAY: one specific action based on the data.
-Line 3: FOOD NOTE: one observation about nutrition based on logs, skip if no food data.
-Line 4: FLAG: one genuine concern only if something warrants it, otherwise write NONE.
-Max 5 sentences total. Direct, no fluff.`
+Given the Whoop data, food logs, and journal notes for the last 7 days, output exactly these lines:
+
+TRAIN HEAVY / TRAIN MODERATE / TRAIN LIGHT / REST — one sentence why. (Always line 1. Never omit.)
+DO THIS TODAY: one specific action based on the data.
+FOOD NOTE: one observation about nutrition based on logs. Omit this line entirely if no food data.
+FLAG: one genuine concern if something warrants it, otherwise write NONE.
+
+Max 5 sentences total.
+
+HARD WRITING RULES — no exceptions:
+- Never start a sentence with "Here's", "Let's", "Today", "Your", "You", "It's"
+- No adverbs
+- Active voice only — subject does the action
+- No em dashes inside sentences (the separator after TRAIN/REST is the only one)
+- Name the specific metric or number — not "sleep was poor" but "sleep score hit 52 two nights running"
+- State the conclusion directly — never use "not X, it's Y" framing
+- Vary sentence length deliberately
+- No hedging, no softening, no justification
+- Blunt and direct throughout`
 
 function buildEmailHtml(brief: string, date: string): string {
   const dateStr = new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', {
@@ -107,8 +121,15 @@ function buildEmailHtml(brief: string, date: string): string {
 </body></html>`
 }
 
+function fmtMin(min: number | null): string {
+  if (min == null) return '—'
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return h > 0 ? `${h}h${m > 0 ? m + 'm' : ''}` : `${m}m`
+}
+
 async function generateCard() {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = await getCoachDate()
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
   const [{ data: whoopRows }, { data: foodRows }, { data: journalRows }] = await Promise.all([
@@ -118,9 +139,28 @@ async function generateCard() {
   ])
 
   const whoopSummary = whoopRows?.length
-    ? whoopRows.map(r =>
-        `${r.date}: recovery=${r.recovery_score ?? '—'}%, hrv=${r.hrv ?? '—'}ms, sleep=${r.sleep_score ?? '—'}%, strain=${r.strain ?? '—'}, resp=${r.respiratory_rate ?? '—'}rpm`
-      ).join('\n')
+    ? whoopRows.map(r => {
+        const parts: (string | null)[] = [
+          `${r.date}:`,
+          `recovery=${r.recovery_score ?? '—'}%`,
+          `hrv=${r.hrv ?? '—'}ms`,
+          r.resting_hr != null ? `rhr=${r.resting_hr}bpm` : null,
+          `sleep=${r.sleep_score ?? '—'}%`,
+          r.sleep_efficiency != null ? `sleep_eff=${r.sleep_efficiency}%` : null,
+          r.total_sleep_min != null && r.sleep_needed_min != null
+            ? `slept=${fmtMin(r.total_sleep_min)}/needed=${fmtMin(r.sleep_needed_min)}`
+            : null,
+          r.deep_sleep_min != null ? `deep=${fmtMin(r.deep_sleep_min)}` : null,
+          r.rem_sleep_min  != null ? `rem=${fmtMin(r.rem_sleep_min)}`   : null,
+          `strain=${r.strain ?? '—'}`,
+          r.spo2           != null ? `spo2=${r.spo2}%`                  : null,
+          r.skin_temp_delta != null
+            ? `skin_temp=${r.skin_temp_delta >= 0 ? '+' : ''}${r.skin_temp_delta}°C`
+            : null,
+          `resp=${r.respiratory_rate ?? '—'}rpm`,
+        ]
+        return parts.filter((p): p is string => p !== null).join(' ')
+      }).join('\n')
     : 'No Whoop data available.'
 
   const foodSummary = foodRows?.length

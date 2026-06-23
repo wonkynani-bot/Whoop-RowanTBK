@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getCoachDate } from '@/lib/coach-date'
 import type { CoachCard, WhoopData, FoodLog } from '@/lib/supabase'
 import CoachCardComponent from '@/components/CoachCard'
 import WhoopConnect from '@/components/WhoopConnect'
@@ -11,20 +12,17 @@ import JournalEntry from '@/components/JournalEntry'
 
 export const revalidate = 0
 
-async function getTodayWhoop(): Promise<WhoopData | null> {
-  const today = new Date().toISOString().slice(0, 10)
+async function getTodayWhoop(today: string): Promise<WhoopData | null> {
   const { data } = await supabase.from('whoop_data').select('*').eq('date', today).single()
   return data ?? null
 }
 
-async function getTodayCard(): Promise<CoachCard | null> {
-  const today = new Date().toISOString().slice(0, 10)
+async function getTodayCard(today: string): Promise<CoachCard | null> {
   const { data } = await supabase.from('coach_cards').select('*').eq('date', today).single()
   return data ?? null
 }
 
-async function getHistory(): Promise<CoachCard[]> {
-  const today = new Date().toISOString().slice(0, 10)
+async function getHistory(today: string): Promise<CoachCard[]> {
   const { data } = await supabase
     .from('coach_cards')
     .select('*')
@@ -34,8 +32,7 @@ async function getHistory(): Promise<CoachCard[]> {
   return data ?? []
 }
 
-async function getPastData(): Promise<{ whoopData: WhoopData[]; foodData: FoodLog[] }> {
-  const today  = new Date().toISOString().slice(0, 10)
+async function getPastData(today: string): Promise<{ whoopData: WhoopData[]; foodData: FoodLog[] }> {
   const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10)
   const [{ data: whoopData }, { data: foodData }] = await Promise.all([
     supabase.from('whoop_data').select('*').lt('date', today).gte('date', cutoff).order('date', { ascending: false }),
@@ -47,24 +44,28 @@ async function getPastData(): Promise<{ whoopData: WhoopData[]; foodData: FoodLo
   }
 }
 
-async function getTodayJournal(): Promise<string> {
-  const today = new Date().toISOString().slice(0, 10)
-  const { data } = await supabase
-    .from('journal_entries')
-    .select('content')
-    .eq('date', today)
-    .single()
-  // If table doesn't exist yet or row is absent, return empty string
-  return data?.content ?? ''
+async function getTodayJournal(today: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('journal_entries')
+      .select('content')
+      .eq('date', today)
+      .single()
+    return data?.content ?? ''
+  } catch {
+    return ''
+  }
 }
 
 export default async function Home() {
+  const today = await getCoachDate()
+
   const [todayWhoop, todayCard, history, pastData, journalContent] = await Promise.all([
-    getTodayWhoop(),
-    getTodayCard(),
-    getHistory(),
-    getPastData(),
-    getTodayJournal(),
+    getTodayWhoop(today),
+    getTodayCard(today),
+    getHistory(today),
+    getPastData(today),
+    getTodayJournal(today),
   ])
 
   return (

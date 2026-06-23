@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getCoachDate } from '@/lib/coach-date'
 
 export async function GET() {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = await getCoachDate()
   const { data, error } = await supabase
     .from('journal_entries')
     .select('*')
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 })
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = await getCoachDate()
 
   const { data, error } = await supabase
     .from('journal_entries')

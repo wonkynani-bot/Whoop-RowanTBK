@@ -36,6 +36,15 @@ export interface WhoopData {
   sleep_score: number | null
   strain: number | null
   respiratory_rate: number | null
+  resting_hr: number | null
+  spo2: number | null
+  skin_temp_delta: number | null
+  sleep_efficiency: number | null
+  deep_sleep_min: number | null
+  rem_sleep_min: number | null
+  total_sleep_min: number | null
+  sleep_needed_min: number | null
+  wake_time: string | null
   created_at: string
 }
 

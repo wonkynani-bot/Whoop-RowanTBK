@@ -16,6 +16,13 @@ function recoveryColor(score: number | null): string {
   return 'whoop-metric-red'
 }
 
+function spo2Color(val: number | null): string {
+  if (val == null) return ''
+  if (val >= 95) return 'whoop-metric-green'
+  if (val >= 90) return 'whoop-metric-yellow'
+  return 'whoop-metric-red'
+}
+
 export default function TodayWhoop({ data }: Props) {
   const hasAny = data && (
     data.recovery_score != null ||
@@ -43,10 +50,24 @@ export default function TodayWhoop({ data }: Props) {
               <span className="today-metric-value">{fmtNum(data!.hrv)}ms</span>
             </div>
           )}
+          {data!.resting_hr != null && (
+            <div className="today-metric">
+              <span className="today-metric-label">RHR</span>
+              <span className="today-metric-value">{fmtNum(data!.resting_hr)}bpm</span>
+            </div>
+          )}
           {data!.sleep_score != null && (
             <div className="today-metric">
               <span className="today-metric-label">Sleep</span>
               <span className="today-metric-value">{fmtNum(data!.sleep_score)}%</span>
+            </div>
+          )}
+          {data!.spo2 != null && (
+            <div className="today-metric">
+              <span className="today-metric-label">SpO2</span>
+              <span className={`today-metric-value ${spo2Color(data!.spo2)}`}>
+                {fmtNum(data!.spo2, 1)}%
+              </span>
             </div>
           )}
           {data!.strain != null && (

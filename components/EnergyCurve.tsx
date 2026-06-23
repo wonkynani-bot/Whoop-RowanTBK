@@ -97,6 +97,36 @@ export default function EnergyCurve({ data }: Props) {
                 <stop offset="100%" stopColor="rgba(107,227,164,0.02)" />
               </linearGradient>
             </defs>
+
+            {/* Sleep zone tint: midnight–7am and 11pm–midnight */}
+            <rect x="0"    y="0" width={(7 / 24 * 400).toFixed(1)}  height="100" fill="rgba(0,0,0,0.18)" />
+            <rect x={(23 / 24 * 400).toFixed(1)} y="0" width={(1 / 24 * 400).toFixed(1)} height="100" fill="rgba(0,0,0,0.18)" />
+
+            {/* Focus window highlight */}
+            {mornMax > 52 && (
+              <rect
+                x={((Math.max(0, mornPeakH - 1) / 24) * 400).toFixed(1)}
+                y="0"
+                width={(2 / 24 * 400).toFixed(1)}
+                height="100"
+                fill="rgba(107,227,164,0.09)"
+              />
+            )}
+
+            {/* Train window highlight */}
+            {aftMax > 38 && (
+              <rect
+                x={((Math.max(0, aftPeakH - 1) / 24) * 400).toFixed(1)}
+                y="0"
+                width={(2 / 24 * 400).toFixed(1)}
+                height="100"
+                fill="rgba(224,118,88,0.09)"
+              />
+            )}
+
+            {/* 50% reference line */}
+            <line x1="0" y1="50" x2="400" y2="50" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
+
             <path d={areaPath} fill="url(#energyGrad)" />
             <path d={linePath} fill="none" stroke="#6BE3A4" strokeWidth="1.8" strokeLinejoin="round" />
           </svg>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getCoachDate } from '@/lib/coach-date'
 
 export async function POST(req: NextRequest) {
   let body: {
@@ -20,10 +21,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'meal_name is required' }, { status: 400 })
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = body.date ?? await getCoachDate()
 
   const { data, error } = await supabase.from('food_logs').insert({
-    date: body.date ?? today,
+    date: today,
     meal_name: body.meal_name.trim(),
     protein: body.protein ?? null,
     carbs: body.carbs ?? null,
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = await getCoachDate()
   const { data, error } = await supabase
     .from('food_logs')
     .select('*')

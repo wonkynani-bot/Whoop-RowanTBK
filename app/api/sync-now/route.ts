@@ -49,12 +49,15 @@ export async function POST() {
     )
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  // Use the date from WHOOP's wake_time (when sleep ended) rather than UTC clock
+  const date = metrics.wake_time
+    ? metrics.wake_time.slice(0, 10)
+    : new Date().toISOString().slice(0, 10)
 
   // Step 4: save to Supabase
   const { error: upsertErr } = await supabase
     .from('whoop_data')
-    .upsert({ date: today, ...metrics }, { onConflict: 'date' })
+    .upsert({ date, ...metrics }, { onConflict: 'date' })
 
   if (upsertErr) {
     return NextResponse.json(
@@ -63,5 +66,5 @@ export async function POST() {
     )
   }
 
-  return NextResponse.json({ ok: true, date: today, metrics })
+  return NextResponse.json({ ok: true, date, metrics })
 }
